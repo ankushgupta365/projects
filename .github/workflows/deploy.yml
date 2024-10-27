@@ -1,0 +1,121 @@
+name: Deploy all projects full backend and frontend
+
+on:
+  push:
+    branches:
+      - main
+  
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+         #installing dependicies for each module
+      - name: Install Dependencies Email Service client
+        working-directory: EmailService/EmailServiceClient
+        run: npm install
+        
+      - name: Install Dependencies Email Service api
+        working-directory: EmailService/api
+        run: npm install
+
+      - name: Install Dependencies studio client teacher
+        working-directory: StudioApp/appointment
+        run: npm install
+
+      - name: Install Dependencies studio client admin
+        working-directory: StudioApp/appointment_admin
+        run: npm install
+
+      - name: Install Dependencies studio api
+        working-directory: StudioApp/Api_appointment
+        run: npm install
+
+        #creating environment files for each modules
+      - name: Create Environment files Email Service api
+        run: |
+          cd EmailService/api
+          touch .env
+          echo "${{secrets.PROD_EMAIL_ENV_FILE}}" > .env
+
+      - name: Create Environment files studio client teacher
+        run: |
+          cd  StudioApp/appointment
+          touch .env.development.local
+          echo "${{secrets.PROD_STUDIO_ENV_FILE}}" > .env.development.local
+
+      - name: Create Environment files studio client admin
+        run: |
+          cd  StudioApp/appointment_admin
+          touch .env.development.local
+          echo "${{secrets.PROD_STUDIO_ENV_FILE}}" > .env.development.local
+
+      - name: Create Environment files studio api
+        run: |
+          cd  StudioApp/Api_appointment
+          touch .env
+          echo "${{secrets.PROD_STUDIOBACKEND_ENV_FILE}}" > .env
+
+        #building frontend modules
+      - name: Build React App Email Service client
+        working-directory: EmailService/EmailServiceClient
+        run: npm run build
+
+      - name: Build React App studio client teacher
+        working-directory: StudioApp/appointment
+        run: npm run build
+
+      - name: Build React App studio client admin
+        working-directory: StudioApp/appointment_admin
+        run: npm run build
+
+        #moving builded frontend module to nginx paths
+      - name: Deploy to Nginx Email Service client
+        run: |
+          sudo rm -rf /var/www/bulkemail/email
+          sudo mkdir /var/www/bulkemail/email
+          sudo cp -r EmailService/EmailServiceClient/dist/* /var/www/bulkemail/email
+
+      - name: Deploy to Nginx studio client teacher
+        run: |
+          sudo rm -rf /var/www/studio/appointment
+          sudo mkdir /var/www/studio/appointment
+          sudo cp -r StudioApp/appointment/build/* /var/www/studio/appointment
+
+      - name: Deploy to Nginx studio client admin
+        run: |
+          sudo rm -rf /var/www/studio/appointment_admin
+          sudo mkdir /var/www/studio/appointment_admin
+          sudo cp -r StudioApp/appointment_admin/build/* /var/www/studio/appointment_admin
+
+
+      #backend re deploy
+      - name: Check if 'studioapi' is running
+        run: |
+          if pm2 list | grep -q "studioapi"; then
+            echo "Studio API is running, restarting..."
+            pm2 restart studioapi
+          else
+            echo "Studio API is not running, starting..."
+            cd StudioApp/Api_appointment
+            pm2 start index.js -i max --name studioapi
+          fi
+
+
+      - name: Check if 'bulkemailapi' is running
+        run: |
+          if pm2 list | grep -q "bulkemailapi"; then
+            echo "Bulk email API is running, restarting..."
+            pm2 restart bulkemailapi
+          else
+            echo "Bulk email API is not running, starting..."
+            cd EmailService/api
+            pm2 start index.js -i max --name bulkemailapi
+          fi
+
+      - name: Restart nginx
+        run: |
+          sudo systemctl restart nginx
