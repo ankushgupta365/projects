@@ -12,7 +12,7 @@ import {
   Input,
   Select,
 } from "antd";
-import { DeleteOutlined, LoadingOutlined } from "@ant-design/icons";
+import { LoadingOutlined } from "@ant-design/icons";
 import {
   getTimingStringFromTimingNoOfSlot,
   localDateStringToDDMMYYYY,
@@ -21,7 +21,6 @@ import {
 import { userRequest } from "../requestMethods";
 import ResponsivePagination from "react-responsive-pagination";
 import { BsFlagFill } from "react-icons/bs";
-import axios from "axios";
 import { AuthContext } from "../context/AuthContext";
 var fileDownload = require("js-file-download");
 const { Search } = Input;
